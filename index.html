@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Tournament - Create Photo Duels & Battles | Free Image Bracket Generator</title>
+    <meta name="description" content="Create instant photo tournaments and duels. Upload images to generate brackets, battle photos head-to-head, and find your champion. 100% private - photos stay on your device. Free photo duel generator.">
+    <meta name="keywords" content="photo tournament, photo duel, image battle, photo bracket generator, picture tournament, photo contest, image duel generator, photo vs photo, picture battle, photo competition maker">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="Photo Tournament - Free Photo Duel Generator">
+    <meta property="og:description" content="Create instant photo tournaments. Upload images, battle them head-to-head, find your champion. 100% private.">
+    <meta property="og:type" content="website">
+    
+    <!-- Add your domain here when you have it -->
+    <link rel="canonical" href="https://yourdomain.com">
+    
+    <!-- Schema.org structured data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Photo Tournament",
+        "description": "Free online photo tournament and duel generator. Create brackets for your images and photos.",
+        "applicationCategory": "Entertainment",
+        "operatingSystem": "All",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        }
+    }
+    </script>
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef } = React;
+        const { Trophy, Upload } = lucide;
+
+        const PhotoTournament = () => {
+            const [images_, setImages_] = useState([]);
+            const [tournament_started_, setTournamentStarted_] = useState(false);
+            const [current_round_, setCurrentRound_] = useState(0);
+            const [current_match_, setCurrentMatch_] = useState(0);
+            const [brackets_, setBrackets_] = useState([]);
+            const [winner_, setWinner_] = useState(null);
+            const file_input_ref_ = useRef(null);
+
+            const DonateButton = () => {
+                return (
+                    <a 
+                        href="https://buymeacoffee.com/alikarakay7"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="fixed bottom-4 right-4 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-colors"
+                    >
+                        <span>☕</span>
+                        <span>Buy me a coffee</span>
+                    </a>
+                );
+            };
+
+            const HandleFileUpload = (event) => {
+                const files = Array.from(event.target.files);
+                if (files.length === 0) return;
+                
+                const image_promises = files.map(file => {
+                    return new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            resolve({
+                                id: Math.random().toString(36).substr(2, 9),
+                                src: e.target.result,
+                                name: file.name
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                });
+
+                Promise.all(image_promises).then(new_images => {
+                    setImages_(prev => [...prev, ...new_images]);
+                });
+            };
+
+            const TriggerFileInput = () => {
+                file_input_ref_.current?.click();
+            };
+
+            const StartTournament = () => {
+                if (images_.length < 2) return;
+
+                let tournament_images = [...images_];
+                
+                const next_power_of_2 = Math.pow(2, Math.ceil(Math.log2(tournament_images.length)));
+                while (tournament_images.length < next_power_of_2) {
+                    tournament_images.push(null);
+                }
+
+                for (let i = tournament_images.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [tournament_images[i], tournament_images[j]] = [tournament_images[j], tournament_images[i]];
+                }
+
+                const initial_bracket = [tournament_images];
+                setBrackets_(initial_bracket);
+                setTournamentStarted_(true);
+                setCurrentRound_(0);
+                setCurrentMatch_(0);
+            };
+
+            const SelectWinner = (winner_image) => {
+                const current_round_bracket = brackets_[current_round_];
+                const match_index = current_match_ * 2;
+                
+                let new_brackets = [...brackets_];
+                
+                if (!new_brackets[current_round_ + 1]) {
+                    new_brackets[current_round_ + 1] = [];
+                }
+                
+                new_brackets[current_round_ + 1].push(winner_image);
+                
+                if (match_index + 2 >= current_round_bracket.length) {
+                    if (new_brackets[current_round_ + 1].length === 1) {
+                        setWinner_(winner_image);
+                    } else {
+                        setCurrentRound_(current_round_ + 1);
+                        setCurrentMatch_(0);
+                    }
+                } else {
+                    setCurrentMatch_(current_match_ + 1);
+                }
+                
+                setBrackets_(new_brackets);
+            };
+
+            const GetCurrentMatchup = () => {
+                if (!brackets_[current_round_]) return { left: null, right: null };
+                
+                const current_bracket = brackets_[current_round_];
+                const match_index = current_match_ * 2;
+                
+                let left = current_bracket[match_index];
+                let right = current_bracket[match_index + 1];
+                
+                if (!left && right) {
+                    SelectWinner(right);
+                    return null;
+                } else if (left && !right) {
+                    SelectWinner(left);
+                    return null;
+                } else if (!left && !right) {
+                    setCurrentMatch_(current_match_ + 1);
+                    return null;
+                }
+                
+                return { left, right };
+            };
+
+            const ResetTournament = () => {
+                setTournamentStarted_(false);
+                setCurrentRound_(0);
+                setCurrentMatch_(0);
+                setBrackets_([]);
+                setWinner_(null);
+            };
+
+            React.useEffect(() => {
+                lucide.createIcons();
+            });
+
+            if (!tournament_started_) {
+                return (
+                    <div className="min-h-screen bg-gray-900 text-white p-8">
+                        <div className="max-w-4xl mx-auto">
+                            <h1 className="text-4xl font-bold mb-2 text-center">Photo Tournament</h1>
+                            <p className="text-center text-gray-400 mb-8">Free Photo Duel Generator - Create Image Battles & Brackets</p>
+                            
+                            <div className="bg-gray-800 rounded-lg p-6 mb-6 max-w-2xl mx-auto">
+                                <h2 className="text-xl font-semibold mb-3">How to Play Photo Duels</h2>
+                                <ol className="space-y-2 text-gray-300">
+                                    <li className="flex items-start">
+                                        <span className="text-blue-400 mr-2">1.</span>
+                                        <span>Upload multiple photos (minimum 2)</span>
+                                    </li>
+                                    <li className="flex items-start">
+                                        <span className="text-blue-400 mr-2">2.</span>
+                                        <span>Photos will be randomly paired in tournament brackets</span>
+                                    </li>
+                                    <li className="flex items-start">
+                                        <span className="text-blue-400 mr-2">3.</span>
+                                        <span>Click on your favorite photo in each matchup</span>
+                                    </li>
+                                    <li className="flex items-start">
+                                        <span className="text-blue-400 mr-2">4.</span>
+                                        <span>Winners advance to the next round until one champion remains!</span>
+                                    </li>
+                                </ol>
+                            </div>
+                            
+                            <div className="bg-gray-800 rounded-lg p-8 mb-6">
+                                <input
+                                    ref={file_input_ref_}
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    onChange={HandleFileUpload}
+                                    style={{ display: 'none' }}
+                                />
+                                
+                                <button
+                                    onClick={TriggerFileInput}
+                                    className="w-full bg-gray-700 hover:bg-gray-600 active:bg-gray-500 border-2 border-dashed border-gray-500 rounded-lg p-8 transition-colors"
+                                >
+                                    <i data-lucide="upload" className="mx-auto mb-2"></i>
+                                    <p className="text-base">Tap to upload photos</p>
+                                    <p className="text-sm text-gray-400 mt-1">Select multiple files</p>
+                                </button>
+
+                                <div className="mt-4 p-4 bg-gray-700 rounded-lg">
+                                    <p className="text-sm text-gray-300 flex items-center gap-2">
+                                        <span className="text-green-400">🔒</span>
+                                        <span>Your photos stay completely local on your device. Nothing is uploaded to the internet. Full privacy guaranteed.</span>
+                                    </p>
+                                </div>
+
+                                {images_.length > 0 && (
+                                    <div className="mt-6">
+                                        <p className="text-sm text-gray-400 mb-4">{images_.length} photos uploaded</p>
+                                        <div className="grid grid-cols-4 gap-2 mb-6">
+                                            {images_.map((img, idx) => (
+                                                <div key={img.id} className="aspect-square bg-gray-700 rounded overflow-hidden">
+                                                    <img src={img.src} alt={img.name} className="w-full h-full object-cover" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                        
+                                        <button
+                                            onClick={StartTournament}
+                                            disabled={images_.length < 2}
+                                            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed py-3 rounded-lg font-semibold transition-colors"
+                                        >
+                                            Start Tournament
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <DonateButton />
+                    </div>
+                );
+            }
+
+            if (winner_) {
+                return (
+                    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-8">
+                        <div className="text-center">
+                            <i data-lucide="trophy" className="mx-auto mb-6 text-yellow-500 w-16 h-16"></i>
+                            <h1 className="text-4xl font-bold mb-8">Tournament Winner!</h1>
+                            <div className="w-96 h-96 mx-auto mb-8 rounded-lg overflow-hidden shadow-2xl">
+                                <img src={winner_.src} alt={winner_.name} className="w-full h-full object-cover" />
+                            </div>
+                            <button
+                                onClick={ResetTournament}
+                                className="bg-blue-600 hover:bg-blue-700 px-8 py-3 rounded-lg font-semibold transition-colors"
+                            >
+                                New Tournament
+                            </button>
+                        </div>
+                        <DonateButton />
+                    </div>
+                );
+            }
+
+            const matchup = GetCurrentMatchup();
+            
+            if (!matchup) {
+                return null;
+            }
+
+            const total_rounds = Math.ceil(Math.log2(brackets_[0].length));
+            const matches_in_round = Math.ceil(brackets_[current_round_].length / 2);
+
+            return (
+                <div className="min-h-screen bg-gray-900 text-white p-8">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-bold mb-2">
+                                Round {current_round_ + 1} of {total_rounds}
+                            </h2>
+                            <p className="text-gray-400">
+                                Match {current_match_ + 1} of {matches_in_round}
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8">
+                            <div 
+                                onClick={() => SelectWinner(matchup.left)}
+                                className="cursor-pointer transform hover:scale-105 active:scale-95 transition-transform"
+                            >
+                                <div className="w-72 h-72 md:w-80 md:h-80 rounded-lg overflow-hidden shadow-2xl">
+                                    <img 
+                                        src={matchup.left.src} 
+                                        alt={matchup.left.name} 
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                
+                                <footer className="mt-8 text-center text-sm text-gray-500">
+                                    <p>Create unlimited photo tournaments and image duels instantly. Perfect for choosing between photos, creating fun battles with friends, or making decision brackets. Works on all devices - mobile and desktop.</p>
+                                </footer>
+                            </div>
+
+                            <div className="text-3xl md:text-4xl font-bold text-gray-600">VS</div>
+
+                            <div 
+                                onClick={() => SelectWinner(matchup.right)}
+                                className="cursor-pointer transform hover:scale-105 active:scale-95 transition-transform"
+                            >
+                                <div className="w-72 h-72 md:w-80 md:h-80 rounded-lg overflow-hidden shadow-2xl">
+                                    <img 
+                                        src={matchup.right.src} 
+                                        alt={matchup.right.name} 
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <p className="text-center mt-8 text-gray-400">Click on your favorite to advance it</p>
+                    </div>
+                    <DonateButton />
+                </div>
+            );
+        };
+
+        ReactDOM.render(<PhotoTournament />, document.getElementById('root'));
+    </script>
+</body>
+</html>
